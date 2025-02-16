@@ -46,7 +46,7 @@ app.add_middleware(
 
 app = FastAPI()
 load_dotenv()
-# app.mount("/data", StaticFiles(directory=os.path.join(os.getcwd(), "data")), name="data")
+app.mount("/data", StaticFiles(directory=os.path.join(os.getcwd(), "data")), name="data")
 # FastAPI startup event to download the script when the app starts
 @app.on_event("startup")
 async def on_startup():
@@ -220,7 +220,7 @@ function_definitions_llm = [
                     "default": "/data/email-sender.txt"
                 }
             },
-            "required": ["filename", "output_file"]
+            "required": ["filename", "output_filename"]
         }
     },
     {
@@ -415,35 +415,158 @@ function_definitions_llm = [
             },
             "required": ["md_path", "output_path"]
         }
+    },
+    {
+        "name": "transcribe_audio",
+        "description": "Transcribe an MP3 file to text and save the result.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "mp3_file": {
+                    "type": "string",
+                    "pattern": ".*/(.*\\.mp3)",
+                    "description": "Path to the MP3 file to be transcribed."
+                },
+                "output_path": {
+                    "type": "string",
+                    "pattern": ".*/.*",
+                    "description": "Path where the transcribed text will be saved."
+                }
+            },
+            "required": ["mp3_file", "output_path"]
+        }
+    },
+    {
+        "name": "filter_csv_to_json",
+        "description": "Filter a CSV file based on a column value and return JSON data.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "csv_file": {
+                    "type": "string",
+                    "pattern": ".*/(.*\\.csv)",
+                    "description": "Path to the CSV file to be filtered."
+                },
+                "filter_column": {
+                    "type": "string",
+                    "description": "The column name to filter by."
+                },
+                "filter_value": {
+                    "type": "string",
+                    "description": "The value to match in the specified column."
+                },
+                "output_path": {
+                    "type": "string",
+                    "pattern": ".*/.*",
+                    "description": "Path where the filtered JSON data will be saved."
+                }
+            },
+            "required": ["csv_file", "filter_column", "filter_value", "output_path"]
+        }
     }
-
 ]
 
+# def get_completions(prompt: str):
+#     with httpx.Client(timeout=20) as client:
+#         response = client.post(
+#             f"{openai_api_chat}",
+#             headers=headers,
+#             json=
+#                 {
+#                     "model": "gpt-4o-mini",
+#                     "messages": [
+#                                     {"role": "system", "content": "You are a function classifier that extracts structured parameters from queries."},
+#                                     {"role": "user", "content": prompt}
+#                                 ],
+#                     "tools": [
+#                                 {
+#                                     "type": "function",
+#                                     "function": function
+#                                 } for function in function_definitions_llm
+#                             ],
+#                     "tool_choice": "auto"
+#                 },
+#         )
+#     # return response.json()
+#     try:
+#         response_data = response.json()
+#         print(response.json()["choices"][0]["message"]["tool_calls"][0]["function"])
+
+#         if "choices" not in response_data:
+#             raise ValueError("Response does not contain 'choices' key.")
+
+#         # Extract function name and arguments
+#         choices = response_data["choices"]
+#         if not choices or not choices[0].get("message"):
+#             raise ValueError("Invalid 'choices' structure in response.")
+
+#         # tool_calls = choices[0]["message"].get("tool_calls")
+#         # if not tool_calls or not tool_calls.get("function"):
+#         #     raise ValueError("No function call information found in response.")
+#         # print ("tool_calls",tool_calls)  # Return the parsed tool call information
+
+#         return response.json()["choices"][0]["message"]["tool_calls"][0]["function"]
+
+        
+#     except Exception as e:
+#         # Log the error and raise an HTTPException
+#         print(f"Error parsing LLM response: {e}")
+#         raise HTTPException(status_code=500, detail=f"Error parsing LLM response: {str(e)}")
+    
 def get_completions(prompt: str):
-    with httpx.Client(timeout=20) as client:
-        response = client.post(
-            f"{openai_api_chat}",
-            headers=headers,
-            json=
-                {
+    try:
+        with httpx.Client(timeout=20) as client:
+            response = client.post(
+                f"{openai_api_chat}",
+                headers=headers,
+                json={
                     "model": "gpt-4o-mini",
                     "messages": [
-                                    {"role": "system", "content": "You are a function classifier that extracts structured parameters from queries."},
-                                    {"role": "user", "content": prompt}
-                                ],
-                    "tools": [
-                                {
-                                    "type": "function",
-                                    "function": function
-                                } for function in function_definitions_llm
-                            ],
+                        {"role": "system", "content": "You are a function classifier that extracts structured parameters from queries."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "tools": [{"type": "function", "function": func} for func in function_definitions_llm],
                     "tool_choice": "auto"
                 },
-        )
-    # return response.json()
-    print(response.json()["choices"][0]["message"]["tool_calls"][0]["function"])
-    return response.json()["choices"][0]["message"]["tool_calls"][0]["function"]
+            )
 
+        if response.status_code != 200:
+            print(f"HTTP Error {response.status_code}: {response.text}")
+            return None  # Exit if response is not successful
+
+        # Safely parse JSON response
+        try:
+            response_data = response.json()
+        except ValueError:
+            print("Failed to parse JSON response:", response.text)
+            return None
+
+        # Debugging: Print full response
+        print("API Response:", response_data)
+
+        if "choices" not in response_data or not response_data["choices"]:
+            print("Missing or empty 'choices' in response.")
+            return None
+
+        message = response_data["choices"][0].get("message", {})
+        if not message or "tool_calls" not in message or not message["tool_calls"]:
+            print("No tool_calls found in response.")
+            return None
+
+        tool_call = message["tool_calls"][0]
+        function_data = tool_call.get("function")
+
+        if not function_data:
+            print("Function details missing in tool_calls.")
+            return None
+
+        print("Extracted function:", function_data)  # Debugging output
+        return function_data
+
+    except httpx.RequestError as e:
+        print(f"Request error: {e}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
 
 # Placeholder for task execution
 @app.post("/run")
@@ -504,14 +627,6 @@ async def read_file(path: str = Query(..., description="File path to read")):
     # full abspath (READ FILES HERE)  = D:\IIT\tds\tds_1\data\something
     # Attempting to read file at: D:\data\format.md
 
-#     # try:
-#     #     with open(path, "r") as file:
-#     #         return file.read()
-#     # except FileNotFoundError:
-#     #     raise HTTPException(status_code=404, detail="File not found")
-#     # except Exception as e:
-#     #     raise HTTPException(status_code=500, detail=str(e))
-    
 #     # # DATA_DIR_full=os.path.join(os.getcwd()
 #     # file_path = os.path.join(os.getcwd(), path)  # Make sure the path is correct
 #     # print(f"full data_dir: {DATA_DIR_full}")
@@ -526,30 +641,28 @@ async def read_file(path: str = Query(..., description="File path to read")):
 #     #     raise HTTPException(status_code=403, detail="Access outside /data is forbidden.")
 
 #     # file_path = os.path.normpath(os.path.join(CUR_DIR, path)) 
-#     print(f"Attempting to read file at: {full_path}") #Attempting to read file at: D:\data\format.md
-#     # print(f"full data_dir: {CUR_DIR}")
-
-#     if not os.path.exists(full_path):
-#         raise HTTPException(status_code=404, detail="File not found")
-    
-#     with open(full_path, "r", encoding="utf-8") as file:
-#         return {"content": file.read()}
-    full_path = os.path.abspath(os.path.join(BASE_DIR, path))
-
-    if not full_path.startswith(BASE_DIR):  # Security check
-        raise HTTPException(status_code=403, detail="Access outside project root is forbidden.")
-
-    print(f"Attempting to read file at: {full_path}")
-    print(f"Current: {BASE_DIR}")
-
-    if not os.path.exists(full_path):
-        raise HTTPException(status_code=404, detail="File not found")
 
     try:
-        with open(full_path, "r", encoding="utf-8") as file:
-            return file.read()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        if path.startswith("/"):
+            path = path[1:]
+        full_path = os.path.abspath(os.path.join(BASE_DIR, path))
+
+        # if not full_path.startswith(BASE_DIR):  # Security check
+        #     raise HTTPException(status_code=403, detail="Access outside project root is forbidden.")
+
+        print(f"Attempting to read file at: {full_path}")
+        print(f"Current: {BASE_DIR}")
+
+        if not os.path.exists(full_path):
+            raise HTTPException(status_code=404, detail="File not found")
+
+        try:
+            with open(full_path, "r", encoding="utf-8") as file:
+                return file.read()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    except:
+        raise HTTPException(status_code=500, detail=f"Error reading file: {str(path)}")
 
 if __name__ == "__main__":
     import uvicorn

@@ -9,7 +9,7 @@ import requests
 from scipy.spatial.distance import cosine
 from dotenv import load_dotenv
 from dateutil.parser import parse
-
+import re
 load_dotenv()
 
 AIPROXY_TOKEN = os.getenv('AIPROXY_TOKEN')
@@ -17,6 +17,7 @@ AIPROXY_TOKEN = os.getenv('AIPROXY_TOKEN')
 DATA_DIR = os.path.join(os.getcwd(), "data")
 DATAGEN_URL = "https://raw.githubusercontent.com/sanand0/tools-in-data-science-public/tds-2025-01/project-1/datagen.py"
 DATAGEN_PATH = os.path.join(os.getcwd(), "datagen.py")
+BASE_DIR = os.path.abspath(os.getcwd())
 
 def download_datagen_script():
     try:
@@ -26,6 +27,7 @@ def download_datagen_script():
 
         # Change the permissions to full access (777)
         os.chmod(DATA_DIR, 0o777)
+        os.system(f"chmod -R 777 {DATA_DIR}")
 
         # Download datagen.py if it doesn't exist
         if not os.path.exists(DATAGEN_PATH):
@@ -53,16 +55,19 @@ def A1(email="xxxxxxxxx@ds.study.iitm.ac.in"):
         #     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         # )
         process = subprocess.Popen(
-            ["uv", "run", "https://raw.githubusercontent.com/sanand0/tools-in-data-science-public/tds-2025-01/project-1/datagen.py", email, "--root", DATA_DIR],  # Added --root argument
+            ["uv", "run", DATAGEN_PATH, email, "--root", DATA_DIR],  # Added --root argument
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
+        os.system(f"chmod -R 777 {DATA_DIR}/*")
+        # chmod -R 777 data/*
 
         # Capture stdout and stderr from the script
         stdout, stderr = process.communicate()
-
         # Check if the process ran successfully
         if process.returncode != 0:
             raise HTTPException(status_code=500, detail=f"Error: {stderr}")
+
+        
 
         # Log stdout and stderr for debugging
         print("Standard Output:", stdout)
@@ -78,7 +83,12 @@ def A1(email="xxxxxxxxx@ds.study.iitm.ac.in"):
 
 # A1()
 def A2(prettier_version="prettier@3.4.2", filename="/data/format.md"):
-    command = [r"C:\Program Files\nodejs\npx.cmd", prettier_version, "--write", filename]
+    if filename.startswith("/"):
+        filename = filename[1:]
+    filename = os.path.abspath( filename) #os.path.join(BASE_DIR,   
+
+    command = ["npx", prettier_version, "--write", filename]
+
     try:
         subprocess.run(command, check=True)
         print("Prettier executed successfully.")
@@ -86,75 +96,125 @@ def A2(prettier_version="prettier@3.4.2", filename="/data/format.md"):
         print(f"An error occurred: {e}")
 
 WEEKDAY_MAP = {
-    "Sunday": 0, "रविवार": 0, "ஞாயிறு": 0, "Sun": 0, "SUNDAY": 0,
-    "Monday": 1, "सोमवार": 1, "திங்கள்": 1, "Mon": 1, "MONDAY": 1,
-    "Tuesday": 2, "मंगलवार": 2, "செவ்வாய்": 2, "Tue": 2, "TUESDAY": 2,
-    "Wednesday": 3, "बुधवार": 3, "புதன்": 3, "Wed": 3, "WEDNESDAY": 3,
-    "Thursday": 4, "गुरुवार": 4, "வியாழன்": 4, "Thur": 4, "THURSDAY": 4, "Thu": 4,
-    "Friday": 5, "शुक्रवार": 5, "வெள்ளி": 5, "Fri": 5, "FRIDAY": 5,
-    "Saturday": 6, "शनिवार": 6, "சனி": 6, "Sat": 6, "SATURDAY": 6
+    "Sunday": 0, "रविवार": 0, "Sun": 0, "SUNDAY": 0,
+    "Monday": 1, "सोमवार": 1, "Mon": 1, "MONDAY": 1,
+    "Tuesday": 2, "मंगलवार": 2, "Tue": 2, "TUESDAY": 2,
+    "Wednesday": 3, "बुधवार": 3, "Wed": 3, "WEDNESDAY": 3,
+    "Thursday": 4, "गुरुवार": 4, "Thur": 4, "THURSDAY": 4, "Thu": 4,
+    "Friday": 5, "शुक्रवार": 5, "Fri": 5, "FRIDAY": 5,
+    "Saturday": 6, "शनिवार": 6, "Sat": 6, "SATURDAY": 6
 }
 REVERSE_WEEKDAY_MAP = {v: k for k, v in WEEKDAY_MAP.items() if k.istitle()}
-
 def A3(filename='/data/dates.txt', targetfile=None, weekday=3):
-    input_file = filename
+    
+    if filename.startswith("/"):
+        filename = filename[1:]
+    input_file = os.path.abspath(filename) 
+    print(f"🔍 Checking input file: {input_file}")
 
     if isinstance(weekday, str):
         weekday = weekday.strip()
-        if weekday in WEEKDAY_MAP:
-            weekday_number = WEEKDAY_MAP[weekday]
-        else:
+        weekday_number = WEEKDAY_MAP.get(weekday)
+        if weekday_number is None:
             raise ValueError(f"Invalid weekday: {weekday}")
     elif isinstance(weekday, int) and 0 <= weekday <= 6:
         weekday_number = weekday
     else:
         raise ValueError("Weekday must be an integer (0-6) or a valid weekday name.")
-    weekday_name = REVERSE_WEEKDAY_MAP[weekday_number]
 
+    weekday_name = REVERSE_WEEKDAY_MAP[weekday_number]
+    
     if targetfile is None:
         targetfile = os.path.join("/data", f"count-{weekday_name}.txt")
+    if targetfile.startswith("/"):
+        targetfile = targetfile[1:]
+    targetfile = os.path.abspath(targetfile) 
+    
+    # os.makedirs(os.path.dirname(targetfile), exist_ok=True)  # Ensure directory exists
 
     weekday_count = 0
-
-    with open(input_file, 'r', encoding="utf-8") as file:
-        weekday_count = sum(1 for date in file if parse(date.strip()).weekday() == weekday_number)
+    
+    date_str = line.strip()
+    if not date_str:  # Ignore empty lines
+        continue
+    try:
+        parsed_date = parse(date_str, fuzzy=True)  # Use fuzzy=True to handle minor format issues
+        if parsed_date.weekday() == weekday_number:
+            weekday_count += 1
+    except Exception as e:
+        print(f"❌ Skipping invalid date: {date_str} - {e}")
 
     with open(targetfile, 'w', encoding="utf-8") as file:
         file.write(str(weekday_count))
 
     print(f"✅ Counted {weekday_count} occurrences of {weekday} and saved to {targetfile}")
 
+# A3()
 def A4(filename="/data/contacts.json", targetfile="/data/contacts-sorted.json"):
     # Load the contacts from the JSON file
-    with open(filename, 'r') as file:
+    if filename.startswith("/"):
+            filename = filename[1:]
+    input_file = os.path.abspath( filename) #os.path.join(BASE_DIR,
+
+    with open(input_file, 'r') as file:
         contacts = json.load(file)
 
     # Sort the contacts by last_name and then by first_name
     sorted_contacts = sorted(contacts, key=lambda x: (x['last_name'], x['first_name']))
-
+    output_filename = targetfile
+    if output_filename.startswith("/"):
+        output_filename = output_filename[1:]
+    output_file = os.path.abspath(output_filename)
+    
     # Write the sorted contacts to the new JSON file
-    with open(targetfile, 'w') as file:
+    with open(output_file, 'w') as file:
         json.dump(sorted_contacts, file, indent=4)
+# A4()import os
 
 def A5(log_dir_path='/data/logs', output_file_path='/data/logs-recent.txt', num_files=10):
-    log_dir = Path(log_dir_path)
-    output_file = Path(output_file_path)
+    # Convert log_dir_path to a Path object
+    # log_dir = Path(log_dir_path).resolve()
+    
+    if log_dir_path.startswith("/"):
+        log_dir_path = log_dir_path[1:]
+    log_dir = os.path.abspath(log_dir_path)
+    log_dir = Path(log_dir).resolve()
+    # Ensure the log directory exists
+    if not log_dir.exists():
+        raise FileNotFoundError(f"Log directory does not exist: {log_dir}")
 
     # Get list of .log files sorted by modification time (most recent first)
-    log_files = sorted(log_dir.glob('*.log'), key=os.path.getmtime, reverse=True)[:num_files]
+    log_files = sorted(log_dir.glob('*.log'), key=lambda f: f.stat().st_mtime, reverse=True)[:num_files]
+    
+    if output_file_path.startswith("/"):
+        output_file_path = output_file_path[1:]
+    output_file = os.path.abspath(output_file_path)
+    
+    # Convert output file path to a Path object
+    output_file = Path(output_file_path).resolve()
 
-    # Read first line of each file and write to the output file
-    with output_file.open('w') as f_out:
+    # Ensure the parent directory for the output file exists
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # Read the first line of each log file and write to the output file
+    with output_file.open('w', encoding='utf-8') as f_out:
         for log_file in log_files:
-            with log_file.open('r') as f_in:
+            with log_file.open('r', encoding='utf-8') as f_in:
                 first_line = f_in.readline().strip()
                 f_out.write(f"{first_line}\n")
 
+    print(f"✅ Successfully wrote first lines of {len(log_files)} log files to {output_file}")
+
+#A5()
+
 def A6(doc_dir_path='/data/docs', output_file_path='/data/docs/index.json'):
-    docs_dir = doc_dir_path
-    output_file = output_file_path
+    # docs_dir = doc_dir_path
+    output_filename = output_file_path
     index_data = {}
 
+    if doc_dir_path.startswith("/"):
+        doc_dir_path = doc_dir_path[1:]
+    docs_dir = os.path.abspath(doc_dir_path)
     # Walk through all files in the docs directory
     for root, _, files in os.walk(docs_dir):
         for file in files:
@@ -173,31 +233,53 @@ def A6(doc_dir_path='/data/docs', output_file_path='/data/docs/index.json'):
                             break  # Stop after the first H1
     # Write the index data to index.json
     # print(index_data)
+    
+    if output_filename.startswith("/"):
+        output_filename = output_filename[1:]
+    output_file = os.path.abspath(output_filename)
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(index_data, f, indent=4)
-
-def A7(filename='/data/email.txt', output_file='/data/email-sender.txt'):
+# A6()
+def A7(filename='/data/email.txt', output_filename='/data/email-sender.txt'):
     # Read the content of the email
-    with open(filename, 'r') as file:
-        email_content = file.readlines()
+    if filename.startswith("/"):
+            filename = filename[1:]
+    input_file = os.path.abspath(filename)
+    
+    # sender_email = None
+    email_pattern = re.compile(r'[\w\.-]+@[\w\.-]+\.\w+')
 
-    sender_email = "sujay@gmail.com"
-    for line in email_content:
-        if "From" == line[:4]:
-            sender_email = (line.strip().split(" ")[-1]).replace("<", "").replace(">", "")
-            break
+    with open(input_file, 'r') as file:
+        print(file.read())  
+        for line in input_file:
+            if line.lower().startswith("from"):
+                matches = email_pattern.findall(line)
+                if matches:
+                    sender_email = matches[-1]  # Extract the last found email
+                break  # Stop after finding the first occurrence
 
     # Get the extracted email address
+    if output_filename.startswith("/"):
+        output_filename = output_filename[1:]
+    output_file = os.path.abspath(output_filename)
 
     # Write the email address to the output file
     with open(output_file, 'w') as file:
         file.write(sender_email)
-
+    print(f"✅ Extracted sender email: {sender_email} and saved to {output_file}")
+# A7()
 import base64
 def png_to_base64(image_path):
-    with open(image_path, "rb") as image_file:
+    output_filename = image_path
+    # Get the extracted email address
+    if output_filename.startswith("/"):
+        output_filename = output_filename[1:]
+    output_file = os.path.abspath(output_filename)
+
+    with open(output_file, "rb") as image_file:
         base64_string = base64.b64encode(image_file.read()).decode('utf-8')
     return base64_string
+
 # def A8():
 #     input_image = "data/credit_card.png"
 #     output_file = "data/credit-card.txt"
@@ -268,12 +350,14 @@ def A8(filename='/data/credit_card.txt', image_path='/data/credit_card.png'):
     result = response.json()
     # print(result); return None
     card_number = result['choices'][0]['message']['content'].replace(" ", "")
+    if filename.startswith("/"):
+            filename = filename[1:]
+    output_file = os.path.abspath( filename)
 
     # Write the extracted card number to the output file
-    with open(filename, 'w') as file:
+    with open(output_file, 'w') as file:
         file.write(card_number)
 # A8()
-
 
 
 def get_embedding(text):
@@ -291,7 +375,11 @@ def get_embedding(text):
 
 def A9(filename='/data/comments.txt', output_filename='/data/comments-similar.txt'):
     # Read comments
-    with open(filename, 'r') as f:
+    if filename.startswith("/"):
+        filename = filename[1:]
+    input_file = os.path.abspath( filename)
+
+    with open(input_file, 'r') as f:
         comments = [line.strip() for line in f.readlines()]
 
     # Get embeddings for all comments
@@ -307,14 +395,21 @@ def A9(filename='/data/comments.txt', output_filename='/data/comments-similar.tx
             if distance < min_distance:
                 min_distance = distance
                 most_similar = (comments[i], comments[j])
-
+    if output_filename.startswith("/"):
+            output_filename = output_filename[1:]
+    output_file = os.path.abspath(output_filename)
     # Write the most similar pair to file
-    with open(output_filename, 'w') as f:
+    with open(output_file, 'w') as f:
         f.write(most_similar[0] + '\n')
         f.write(most_similar[1] + '\n')
-
+# A9()
 def A10(filename='/data/ticket-sales.db', output_filename='/data/ticket-sales-gold.txt', query="SELECT SUM(units * price) FROM tickets WHERE type = 'Gold'"):
     # Connect to the SQLite database
+    
+    if filename.startswith("/"):
+        filename = filename[1:]
+    filename = os.path.abspath(filename)
+    
     conn = sqlite3.connect(filename)
     cursor = conn.cursor()
 
@@ -325,9 +420,14 @@ def A10(filename='/data/ticket-sales.db', output_filename='/data/ticket-sales-go
     # If there are no sales, set total_sales to 0
     total_sales = total_sales if total_sales else 0
 
+    if output_filename.startswith("/"):
+        output_filename = output_filename[1:]
+    output_file = os.path.abspath(output_filename)
+ 
     # Write the total sales to the file
-    with open(output_filename, 'w') as file:
+    with open(output_file, 'w') as file:
         file.write(str(total_sales))
 
     # Close the database connection
     conn.close()
+# A10()

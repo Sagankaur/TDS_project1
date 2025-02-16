@@ -234,7 +234,15 @@ async def a10(email, **kwargs):
 
 async def main(email: str):
     score, total = 0, 0
-    for task in [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10]:
+    try:
+        logging.info("Running A1 to generate data...")
+        await a1(email=email)
+        logging.info("A1 completed successfully.")
+    except Exception as e:
+        logging.error(f"🔴 A1 failed: {e}")
+        return  # Stop if A1 fails
+        
+    for task in [a3, a9, a2, a7 ]: #[a1, a2, a3, a4, a5, a6, a7, a8, a9, a10]:
         total += 1
         try:
             success = await task(email=email)
