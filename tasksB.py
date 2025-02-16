@@ -47,7 +47,7 @@ def B3(url, save_path):
     
     print(f"✅ Data saved to {full_save_path}")
 
-#B4: Clone a Git Repo and Make a Commit
+#B4: Clo
 def clone_git_repo(repo_url, commit_message):
     repo_path = "/data/repo"
 
@@ -55,15 +55,22 @@ def clone_git_repo(repo_url, commit_message):
     if os.path.exists(repo_path):
         print("⚠️ Repo already exists at /data/repo. Skipping clone.")
     else:
-        subprocess.run(["git", "clone", repo_url, repo_path])
-    
-    # Make a commit
-    subprocess.run(["git", "-C", repo_path, "commit", "--allow-empty", "-m", commit_message])
-    print(f"✅ Commit made with message: {commit_message}")
+        print(f"🌀 Cloning repo from {repo_url}...")
+        subprocess.run(["git", "clone", repo_url, repo_path], check=True)
+
+    # Make a commit (empty or with changes)
+    print(f"✅ Creating a commit with message: {commit_message}")
+    subprocess.run(["git", "-C", repo_path, "add", "."], check=True)
+    subprocess.run(["git", "-C", repo_path, "commit", "--allow-empty", "-m", commit_message], check=True)
+
+    # Optional: Push the commit (ensure Git remote is set up)
+    subprocess.run(["git", "-C", repo_path, "push"], check=True)
+    print("🚀 Changes pushed to the repository.")
 
 # B5: Run SQL Query
 def B5(db_path, query, output_filename):
     import sqlite3
+    import duckdb
     if not B12(output_filename):
         return None
     
@@ -263,10 +270,6 @@ def filter_csv_to_json(csv_file, filter_column, filter_value, output_path):
         else:
             return ("path outside DATA")
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error filtering CSV data: {str(e)}")
-
-#TESTING
 
 # import os
 # import sqlite3
@@ -328,7 +331,7 @@ def filter_csv_to_json(csv_file, filter_column, filter_value, output_path):
 # B3("https://jsonplaceholder.typicode.com/todos/1", "/etc/todo.json")  
 # # Expected: "outside DATA" (since save_path isn’t in /data).
 
-# # clone_git_repo("https://github.com/Sagankaur/TDS_project1", "Initial commit")  
+# clone_git_repo("https://github.com/Sagankaur/TDS_project1", "Initial commit")  
 # # # Expected: Clones the repo to /data/repo and makes a commit with the message.
 
 # B5("/data/mydatabase.db", "SELECT * FROM my_table;", "/data/query_result.txt")  
