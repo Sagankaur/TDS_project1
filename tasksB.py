@@ -30,45 +30,69 @@ def B12(filepath):
 
 # B3: Fetch Data from an API
 def B3(url, save_path):
-    if not B12(save_path):
-        return ("outside DATA")
     import requests
+    if not B12(save_path):
+        return "outside DATA"
+    
     response = requests.get(url)
-
+    
+    # Fix the variable name issue
     if save_path.startswith("/"):
-        save_path = output_filename[1:]
+        save_path = save_path[1:]
+    
     full_save_path = os.path.abspath(save_path)
     
     with open(full_save_path, 'w') as file:
         file.write(response.text)
+    
+    print(f"✅ Data saved to {full_save_path}")
 
 #B4: Clone a Git Repo and Make a Commit
 def clone_git_repo(repo_url, commit_message):
-    import subprocess
-    subprocess.run(["git", "clone", repo_url, "/data/repo"])
-    subprocess.run(["git", "-C", "/data/repo", "commit", "-m", commit_message])
+    repo_path = "/data/repo"
+
+    # Check if repo already exists
+    if os.path.exists(repo_path):
+        print("⚠️ Repo already exists at /data/repo. Skipping clone.")
+    else:
+        subprocess.run(["git", "clone", repo_url, repo_path])
+    
+    # Make a commit
+    subprocess.run(["git", "-C", repo_path, "commit", "--allow-empty", "-m", commit_message])
+    print(f"✅ Commit made with message: {commit_message}")
 
 # B5: Run SQL Query
 def B5(db_path, query, output_filename):
+    import sqlite3
     if not B12(output_filename):
         return None
-    import sqlite3, duckdb
+    
     if db_path.startswith("/"):
         db_path = db_path[1:]
-    db_path = os.path.abspath(db_path)
     
-    conn = sqlite3.connect(db_path) if db_path.endswith('.db') else duckdb.connect(db_path)
-    cur = conn.cursor()
-    cur.execute(query)
+    db_path = os.path.abspath(db_path)
+
+    # Handle SQLite and DuckDB connections
+    if db_path.endswith('.db'):
+        conn = sqlite3.connect(db_path)
+    else:
+        conn = duckdb.connect(db_path)
+    
+    # Use conn.execute instead of cursor for DuckDB
+    cur = conn.execute(query)
     result = cur.fetchall()
     conn.close()
-
+    
+    # Fix the file path handling
     if output_filename.startswith("/"):
         output_filename = output_filename[1:]
+    
     output_file = os.path.abspath(output_filename)
     
     with open(output_file, 'w') as file:
         file.write(str(result))
+    
+    print(f"✅ Query results saved to {output_file}")
     return result
 
 # B6: Web Scraping
@@ -89,8 +113,12 @@ def B6(url, output_filename):
 # B7: Image Processing
 def B7(image_path, output_path, resize=None):
     from PIL import Image
-    # if not B12(image_path):
-    #     return None
+    if not B12(image_path):
+        return None
+    if image_path.startswith("/"):
+        image_path = image_path[1:]
+    image_path = os.path.abspath(image_path)
+    
     if not B12(output_path):
         return None
     
@@ -99,7 +127,7 @@ def B7(image_path, output_path, resize=None):
         img = img.resize(resize)
     
     if output_path.startswith("/"):
-        output_path = output_filename[1:]
+        output_path = output_path[1:]
     output_path_full = os.path.abspath(output_path)
     
     img.save(output_path_full)
@@ -127,7 +155,7 @@ def B9(md_path, output_path):
         html = markdown.markdown(file.read())
         
     if output_path.startswith("/"):
-        output_path = output_filename[1:]
+        output_path = output_path[1:]
     output_path_full = os.path.abspath(output_path)
     
     with open(output_path_full, 'w') as file:
@@ -184,7 +212,7 @@ def transcribe_audio(mp3_file, output_path):
                 transcription = recognizer.recognize_google(audio_data)
            
             if output_path.startswith("/"):
-                output_path = output_filename[1:]
+                output_path = output_path[1:]
             output_path_full = os.path.abspath(output_path)
             
             with open(output_path_full, "w") as f:
@@ -218,7 +246,7 @@ def filter_csv_to_json(csv_file, filter_column, filter_value, output_path):
         from fastapi import HTTPException
         import json
         # Validate and construct file paths
-        if B12(output_path) :
+        if B12(output_path) and B12(csv_file):
             if csv_file.startswith("/"):
                 csv_file = csv_file[1:]
             input_path = os.path.abspath(csv_file)
@@ -237,3 +265,89 @@ def filter_csv_to_json(csv_file, filter_column, filter_value, output_path):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error filtering CSV data: {str(e)}")
+
+#TESTING
+
+# import os
+# import sqlite3
+# import csv
+# from os.path import join
+# import ffmpeg
+
+# db_path = join(os.getcwd(), 'data/mydatabase.db')
+# csv_path = join(os.getcwd(),'data/example.csv')
+# md_path = join(os.getcwd(),'data/example.md')
+# mp3_path = join(os.getcwd(),'data/audio_sample.mp3')
+# image_path = join(os.getcwd(),'data/input_image.jpg')
+# # Create SQLite database and table
+# conn = sqlite3.connect(db_path)
+# cur = conn.cursor()
+# cur.execute('''CREATE TABLE IF NOT EXISTS my_table (id INTEGER PRIMARY KEY, name TEXT, status TEXT)''')
+# cur.executemany('INSERT INTO my_table (name, status) VALUES (?, ?)', [
+#     ('Alice', 'active'),
+#     ('Bob', 'inactive'),
+#     ('Charlie', 'active'),
+#     ('Dave', 'inactive'),
+# ])
+# conn.commit()
+# conn.close()
+
+# # Create CSV file
+# with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+#     writer = csv.writer(csvfile)
+#     writer.writerow(['id', 'name', 'status'])
+#     writer.writerow([1, 'Alice', 'active'])
+#     writer.writerow([2, 'Bob', 'inactive'])
+#     writer.writerow([3, 'Charlie', 'active'])
+#     writer.writerow([4, 'Dave', 'inactive'])
+
+# # Create Markdown file
+# with open(md_path, 'w', encoding='utf-8') as mdfile:
+#     mdfile.write("# Example Markdown\n\nThis is a sample markdown file.\n\n- Item 1\n- Item 2\n")
+
+# # Create placeholder MP3 file (empty for now)
+# with open(mp3_path, 'wb') as mp3file:
+#     mp3file.write(b'\x00')
+
+# # # Create placeholder image file (empty for now)
+# # with open(image_path, 'wb') as imgfile:
+# #     imgfile.write(b'\x00')
+# from PIL import Image
+# img = Image.new('RGB', (200, 200), color=(255, 0, 0))  # Red 200x200 image
+# img.save(image_path)
+
+# # Return paths to verify
+# print(db_path, csv_path, md_path, mp3_path, image_path)
+
+# print(B12("/data/myfile.txt"))  # Expected: True (inside /data)  
+# print(B12("/etc/passwd"))       # Expected: False (outside /data)  
+# print(B12("myfile.txt"))        # Expected: False (relative path, not /data)  
+# B3("https://jsonplaceholder.typicode.com/todos/1", "/data/todo.json")  
+# # Expected: File saved in /data/todo.json with JSON content.
+
+# B3("https://jsonplaceholder.typicode.com/todos/1", "/etc/todo.json")  
+# # Expected: "outside DATA" (since save_path isn’t in /data).
+
+# # clone_git_repo("https://github.com/octocat/Hello-World.git", "Initial commit")  
+# # # Expected: Clones the repo to /data/repo and makes a commit with the message.
+
+# B5("/data/mydatabase.db", "SELECT * FROM my_table;", "/data/query_result.txt")  
+# # Expected: File saved with query result.
+
+# B5("/data/mydatabase.db", "SELECT * FROM my_table;", "/etc/query_result.txt")  
+# # Expected: None (since output filename is outside /data).
+
+# B6("https://jsonplaceholder.typicode.com/todos/1", "/data/todo.json")
+# # Expected: File saved at /data/todo.json with JSON content.
+# # If the output filename isn’t inside /data, it should return None.
+# B7("/data/input_image.jpg", "/data/output_image.jpg", resize=(100, 100))
+# # Expected: Resized image saved to /data/output_image.jpg.
+# B9("/data/example.md", "/data/example.html")
+# # Expected: Markdown from example.md converted to HTML and saved to /data/example.html.
+# # If paths are outside /data, it should return None.
+# # If output path is not in /data, it should return None.
+# filter_csv_to_json("/data/example.csv", "status", "active", "/data/filtered_data.json")
+# ffmpeg.input('anullsrc=r=44100:cl=stereo', f='lavfi').output(mp3_path, t=5).run()
+# print(f"Silent audio created at: {mp3_path}")
+# transcribe_audio("/data/audio_sample.mp3", "/data/transcription.txt")
+# # clone_git_repo("https://github.com/octocat/Hello-World.git", "Initial commit")  
