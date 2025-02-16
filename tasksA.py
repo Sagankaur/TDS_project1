@@ -82,73 +82,100 @@ def A1(email="xxxxxxxxx@ds.study.iitm.ac.in"):
         raise HTTPException(status_code=500, detail=f"Unexpected Error: {str(e)}")
 
 # A1()
+# def A2(prettier_version="prettier@3.4.2", filename="/data/format.md"):
+#     if filename.startswith("/"):
+#         filename = filename[1:]
+#     filename = os.path.abspath( filename) #os.path.join(BASE_DIR,   
+
+#     command = ["npx", prettier_version, "--write", filename]
+
+#     try:
+#         subprocess.run(command, check=True)
+#         print("Prettier executed successfully.")
+#     except subprocess.CalledProcessError as e:
+#         print(f"An error occurred: {e}")
+
 def A2(prettier_version="prettier@3.4.2", filename="/data/format.md"):
+    # Ensure the filename is absolute
     if filename.startswith("/"):
         filename = filename[1:]
-    filename = os.path.abspath( filename) #os.path.join(BASE_DIR,   
+    filename = os.path.abspath(filename)
 
+    # Build the Prettier command
     command = ["npx", prettier_version, "--write", filename]
 
     try:
+        # Run the Prettier command
         subprocess.run(command, check=True)
-        print("Prettier executed successfully.")
+        print("✅ Prettier executed successfully.")
+    except FileNotFoundError:
+        print(f"❌ File not found: {filename}. Please ensure the file exists.")
     except subprocess.CalledProcessError as e:
-        print(f"An error occurred: {e}")
+        print(f"❌ Prettier failed with exit code {e.returncode}. Command: {' '.join(command)}")
+        print(f"Error output: {e}")
+    except Exception as e:
+        print(f"❌ An unexpected error occurred: {e}")
 
+from dateutil.parser import ParserError
+
+# Corrected WEEKDAY_MAP
 WEEKDAY_MAP = {
-    "Sunday": 0, "रविवार": 0, "Sun": 0, "SUNDAY": 0,
-    "Monday": 1, "सोमवार": 1, "Mon": 1, "MONDAY": 1,
-    "Tuesday": 2, "मंगलवार": 2, "Tue": 2, "TUESDAY": 2,
-    "Wednesday": 3, "बुधवार": 3, "Wed": 3, "WEDNESDAY": 3,
-    "Thursday": 4, "गुरुवार": 4, "Thur": 4, "THURSDAY": 4, "Thu": 4,
-    "Friday": 5, "शुक्रवार": 5, "Fri": 5, "FRIDAY": 5,
-    "Saturday": 6, "शनिवार": 6, "Sat": 6, "SATURDAY": 6
+    "Sunday": 6, "रविवार": 6, "Sun": 6, "SUNDAY": 6,
+    "Monday": 0, "सोमवार": 0, "Mon": 0, "MONDAY": 0,
+    "Tuesday": 1, "मंगलवार": 1, "Tue": 1, "TUESDAY": 1,
+    "Wednesday": 2, "बुधवार": 2, "Wed": 2, "WEDNESDAY": 2,
+    "Thursday": 3, "गुरुवार": 3, "Thur": 3, "THURSDAY": 3, "Thu": 3,
+    "Friday": 4, "शुक्रवार": 4, "Fri": 4, "FRIDAY": 4,
+    "Saturday": 5, "शनिवार": 5, "Sat": 5, "SATURDAY": 5
 }
 REVERSE_WEEKDAY_MAP = {v: k for k, v in WEEKDAY_MAP.items() if k.istitle()}
-def A3(filename='/data/dates.txt', targetfile=None, weekday=3):
-    
+
+def A3(filename='/data/dates.txt', targetfile=None, weekday="Wednesday"):
     if filename.startswith("/"):
         filename = filename[1:]
-    input_file = os.path.abspath(filename) 
+    input_file = os.path.abspath(filename)
     print(f"🔍 Checking input file: {input_file}")
 
+    # Validate weekday input
     if isinstance(weekday, str):
         weekday = weekday.strip()
         weekday_number = WEEKDAY_MAP.get(weekday)
         if weekday_number is None:
             raise ValueError(f"Invalid weekday: {weekday}")
-    elif isinstance(weekday, int) and 0 <= weekday <= 6:
+    elif isinstance(weekday, int) and weekday in range(7):
         weekday_number = weekday
     else:
         raise ValueError("Weekday must be an integer (0-6) or a valid weekday name.")
 
     weekday_name = REVERSE_WEEKDAY_MAP[weekday_number]
-    
+
     if targetfile is None:
         targetfile = os.path.join("/data", f"count-{weekday_name}.txt")
     if targetfile.startswith("/"):
         targetfile = targetfile[1:]
-    targetfile = os.path.abspath(targetfile) 
-    
-    # os.makedirs(os.path.dirname(targetfile), exist_ok=True)  # Ensure directory exists
+    targetfile = os.path.abspath(targetfile)
 
+    # Count occurrences of the specified weekday
     weekday_count = 0
-    
-    date_str = line.strip()
-    if not date_str:  # Ignore empty lines
-        continue
-    try:
-        parsed_date = parse(date_str, fuzzy=True)  # Use fuzzy=True to handle minor format issues
-        if parsed_date.weekday() == weekday_number:
-            weekday_count += 1
-    except Exception as e:
-        print(f"❌ Skipping invalid date: {date_str} - {e}")
+    with open(input_file, 'r', encoding="utf-8") as file:
+        for line in file:
+            date_str = line.strip()
+
+            if not date_str: # Ignore empty lines
+                continue
+            try:
+                parsed_date = parse(date_str, fuzzy=True) # Parse the date string
+                if parsed_date.weekday() == weekday_number: # Compare weekdays
+                    weekday_count += 1
+            except ParserError as e: # Handle invalid dates gracefully
+                print(f"❌ Skipping invalid date: {date_str} - {e}")
 
     with open(targetfile, 'w', encoding="utf-8") as file:
         file.write(str(weekday_count))
 
-    print(f"✅ Counted {weekday_count} occurrences of {weekday} and saved to {targetfile}")
-
+    print(f"✅ Counted {weekday_count} occurrences of {weekday_name} and saved to {targetfile}")
+# A3(filename='/data/dates.txt', weekday=3) # Count Wednesdays
+# A3(filename='/data/dates.txt', weekday="Wednesday") 
 # A3()
 def A4(filename="/data/contacts.json", targetfile="/data/contacts-sorted.json"):
     # Load the contacts from the JSON file
@@ -240,7 +267,7 @@ def A6(doc_dir_path='/data/docs', output_file_path='/data/docs/index.json'):
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(index_data, f, indent=4)
 # A6()
-def A7(filename='/data/email.txt', output_filename='/data/email-sender.txt'):
+def A7(filename='/data/email.txt', output_file='/data/email-sender.txt'):
     # Read the content of the email
     if filename.startswith("/"):
             filename = filename[1:]
@@ -259,9 +286,9 @@ def A7(filename='/data/email.txt', output_filename='/data/email-sender.txt'):
                 break  # Stop after finding the first occurrence
 
     # Get the extracted email address
-    if output_filename.startswith("/"):
-        output_filename = output_filename[1:]
-    output_file = os.path.abspath(output_filename)
+    if output_file.startswith("/"):
+        output_file = output_file[1:]
+    output_file = os.path.abspath(output_file)
 
     # Write the email address to the output file
     with open(output_file, 'w') as file:
@@ -360,6 +387,19 @@ def A8(filename='/data/credit_card.txt', image_path='/data/credit_card.png'):
 # A8()
 
 
+# def get_embedding(text):
+#     headers = {
+#         "Content-Type": "application/json",
+#         "Authorization": f"Bearer {AIPROXY_TOKEN}"
+#     }
+#     data = {
+#         "model": "text-embedding-3-small",
+#         "input": [text]
+#     }
+#     response = requests.post("http://aiproxy.sanand.workers.dev/openai/v1/embeddings", headers=headers, data=json.dumps(data))
+#     response.raise_for_status()
+#     return response.json()["data"][0]["embedding"]
+
 def get_embedding(text):
     headers = {
         "Content-Type": "application/json",
@@ -369,9 +409,26 @@ def get_embedding(text):
         "model": "text-embedding-3-small",
         "input": [text]
     }
-    response = requests.post("http://aiproxy.sanand.workers.dev/openai/v1/embeddings", headers=headers, data=json.dumps(data))
-    response.raise_for_status()
-    return response.json()["data"][0]["embedding"]
+
+    try:
+        response = requests.post(
+            "http://aiproxy.sanand.workers.dev/openai/v1/embeddings",
+            headers=headers,
+            data=json.dumps(data)
+        )
+        response.raise_for_status()  # Raise an HTTPError for bad responses (4xx and 5xx)
+        
+        # Log the response for debugging
+        print("API Response:", response.json())
+
+        # Extract and return embedding
+        return response.json()["data"][0]["embedding"]
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Request failed: {e}")
+    except KeyError:
+        print(f"❌ Unexpected response format: {response.json()}")
+
 
 def A9(filename='/data/comments.txt', output_filename='/data/comments-similar.txt'):
     # Read comments

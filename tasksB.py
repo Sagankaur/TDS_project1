@@ -3,16 +3,16 @@
 # B1 & B2: Security Checks
 import os
 
-# import csv
-# import sqlite3
-# import duckdb
-# import speech_recognition as sr
-# import markdown
-# import json
-# from fastapi import HTTPException
+# import csv d
+# import sqlite3 
+# import duckdb d
+# import speech_recognition as sr d
+# import markdown d
+# import json d
+# from fastapi import HTTPException d
 # import requests
 # from PIL import Image
-# import ffmpeg
+# import ffmpeg d
 
 def B12(filepath):
     # if filepath.startswith("/"):
@@ -50,7 +50,7 @@ def clone_git_repo(repo_url, commit_message):
 
 # B5: Run SQL Query
 def B5(db_path, query, output_filename):
-    if not B12(db_path):
+    if not B12(output_filename):
         return None
     import sqlite3, duckdb
     if db_path.startswith("/"):
@@ -76,6 +76,9 @@ def B6(url, output_filename):
     import requests
     result = requests.get(url).text
     
+    if not B12(output_filename):
+        return None
+    
     if output_filename.startswith("/"):
         output_filename = output_filename[1:]
     output_file = os.path.abspath(output_filename)
@@ -86,8 +89,8 @@ def B6(url, output_filename):
 # B7: Image Processing
 def B7(image_path, output_path, resize=None):
     from PIL import Image
-    if not B12(image_path):
-        return None
+    # if not B12(image_path):
+    #     return None
     if not B12(output_path):
         return None
     
@@ -112,11 +115,15 @@ def B7(image_path, output_path, resize=None):
 # B9: Markdown to HTML Conversion
 def B9(md_path, output_path):
     import markdown
-    if not B12(md_path):
-        return None
+    # if not B12(md_path):
+    #     return None
     if not B12(output_path):
         return None
-    with open(md_path, 'r') as file:
+    if md_path.startswith("/"):
+        md_path = md_path[1:]
+    md_path_full = os.path.abspath(md_path)
+    
+    with open(md_path_full, 'r') as file:
         html = markdown.markdown(file.read())
         
     if output_path.startswith("/"):
@@ -152,8 +159,11 @@ def transcribe_audio(mp3_file, output_path):
         HTTPException: If there are issues with transcription.
     """
     try:
+        from fastapi import HTTPException
         # Validate and construct file paths
-        if B12(mp3_file) and B12(output_path):
+        if B12(output_path):
+            import speech_recognition as sr
+            import ffmpeg
             
             if mp3_file.startswith("/"):
                 mp3_file = mp3_file[1:]
@@ -204,8 +214,11 @@ def filter_csv_to_json(csv_file, filter_column, filter_value, output_path):
         HTTPException: If there are issues with filtering or reading the file.
     """
     try:
+        import csv
+        from fastapi import HTTPException
+        import json
         # Validate and construct file paths
-        if B12(output_path) and  B12(csv_file):
+        if B12(output_path) :
             if csv_file.startswith("/"):
                 csv_file = csv_file[1:]
             input_path = os.path.abspath(csv_file)
